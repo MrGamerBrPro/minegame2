@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coletor Ecológico - Desafio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Desabilita ações de toque padrão como zoom e rolagem na área do jogo */
+            touch-action: none; 
+        }
+        canvas {
+            background-color: #f0fdf4; /* Verde bem claro, como o do seu site */
+            border-radius: 0.5rem;
+            border: 2px solid #22c55e; /* Verde principal */
+            display: block; /* Garante que o canvas não tenha espaço extra abaixo dele */
+            width: 100%;
+            height: 100%;
+        }
+        .game-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .game-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .game-modal {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto">
+        <header class="text-center mb-4">
+            <h1 class="text-4xl font-bold text-green-600">Coletor Ecológico</h1>
+            <p class="text-gray-700 mt-2">Pegue os recicláveis e evite o lixo para limpar o planeta!</p>
+        </header>
+
+        <!-- Container do Jogo (Totalmente Responsivo) -->
+        <div id="game-container" class="relative w-full aspect-[4/3] max-h-[600px] shadow-lg rounded-lg">
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Tela Inicial / Game Over -->
+            <div id="modal" class="game-modal absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center text-white p-4 sm:p-8 rounded-lg">
+                <h2 id="modal-title" class="text-3xl sm:text-4xl font-bold mb-4 text-center">Bem-vindo!</h2>
+                <p id="modal-text" class="text-base sm:text-lg text-center mb-6">Mova o coletor com as setas do teclado ou arrastando na tela para pegar os itens recicláveis. Cuidado com o lixo!</p>
+                <p id="final-score" class="text-xl sm:text-2xl font-semibold mb-6 hidden"></p>
+                <button id="startButton" class="game-button bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full text-lg sm:text-xl shadow-md">
+                    Jogar
+                </button>
+            </div>
+        </div>
+
+        <!-- Informações do Jogo -->
+        <div class="flex justify-between items-center mt-4 p-4 bg-white rounded-lg shadow-md border border-gray-200">
+            <div class="text-lg">
+                <span class="font-semibold text-gray-700">Pontuação:</span>
+                <span id="score" class="font-bold text-green-600">0</span>
+            </div>
+            <div class="text-lg">
+                <span class="font-semibold text-gray-700">Vidas:</span>
+                <span id="lives" class="font-bold text-red-500">❤️❤️❤️</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configurações Iniciais ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const finalScoreEl = document.getElementById('final-score');
+        const startButton = document.getElementById('startButton');
+
+        let score = 0;
+        let lives = 3;
+        let gameOver = true;
+        let gameLoop;
+
+        // --- Objetos do Jogo ---
+        const player = {
+            width: 80, // Largura base, será ajustada
+            height: 20,
+            x: 0,
+            y: 0,
+            speed: 15,
+            dx: 0
+        };
+
+        const items = [];
+        const itemTypes = {
+            recyclable: { emojis: ['♻️', '📄', '🍾', '🥫', '📦'], points: 10 },
+            trash: { emojis: ['☠️', '🗑️', '☣️', '🚬'], points: -1 }
+        };
+        
+        // --- Parâmetros de Dificuldade ---
+        let itemSpawnInterval = 900; // Começa um pouco mais rápido
+        const minSpawnInterval = 350; // Intervalo mínimo de spawn
+        const spawnIntervalDecrement = 10; // Redução do intervalo a cada 50 pontos
+        let lastSpawn = -1;
+        let itemSpeed = 2.5; // Velocidade inicial maior
+        const speedIncrement = 75; // A velocidade aumenta a cada 75 pontos
+
+        // --- Função de Redimensionamento ---
+        function resizeCanvas() {
+            // Ajusta o tamanho do canvas para preencher o container
+            canvas.width = gameContainer.clientWidth;
+            canvas.height = gameContainer.clientHeight;
+
+            // Ajusta o tamanho e posição do jogador com base no novo tamanho do canvas
+            player.width = canvas.width / 10; // Coletor é 10% da largura da tela
+            player.height = canvas.height / 30;
+            player.x = (canvas.width - player.width) / 2;
+            player.y = canvas.height - (player.height * 2);
+            player.speed = canvas.width / 40; // Velocidade proporcional à tela
+
+            // Redesenha tudo se o jogo não estiver na tela inicial
+            if (!gameOver) {
+                draw();
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        
+        // --- Funções de Desenho ---
+        function drawPlayer() {
+            ctx.beginPath();
+            ctx.rect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#16a34a'; // Verde escuro
+            ctx.fill();
+            ctx.closePath();
+            
+            ctx.beginPath();
+            ctx.rect(player.x + player.width/4, player.y - (player.height/4), player.width/2, player.height/4);
+            ctx.fillStyle = '#22c55e'; // Verde principal
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawItems() {
+            const itemSize = canvas.width / 20; // Tamanho do emoji proporcional à tela
+            ctx.font = `${itemSize}px Arial`;
+            items.forEach(item => {
+                ctx.fillText(item.emoji, item.x, item.y);
+            });
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            drawItems();
+        }
+
+        // --- Lógica do Jogo ---
+        function createItem() {
+            const isRecyclable = Math.random() > 0.33; // ~67% de chance de ser reciclável
+            const type = isRecyclable ? 'recyclable' : 'trash';
+            const typeInfo = itemTypes[type];
+            const emoji = typeInfo.emojis[Math.floor(Math.random() * typeInfo.emojis.length)];
+
+            items.push({
+                x: Math.random() * (canvas.width - 30),
+                y: 0,
+                emoji: emoji,
+                type: type,
+                points: typeInfo.points
+            });
+        }
+
+        function updateItems() {
+            const currentSpeed = itemSpeed + Math.floor(score / speedIncrement) * 0.5;
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.y += currentSpeed;
+
+                // Detecção de colisão
+                if (
+                    item.y > player.y - 30 && item.y < player.y + player.height &&
+                    item.x + 15 > player.x && item.x < player.x + player.width
+                ) {
+                    if (item.type === 'recyclable') {
+                        score += item.points;
+                        // A cada 50 pontos, diminui o intervalo de spawn
+                        if (score % 50 === 0 && itemSpawnInterval > minSpawnInterval) {
+                            itemSpawnInterval -= spawnIntervalDecrement;
+                        }
+                    } else {
+                        lives--;
+                        updateLivesDisplay();
+                    }
+                    items.splice(i, 1);
+                    updateScoreDisplay();
+                } else if (item.y > canvas.height) {
+                    // Penaliza se deixar um reciclável cair
+                    if (item.type === 'recyclable') {
+                        lives--;
+                        updateLivesDisplay();
+                    }
+                    items.splice(i, 1);
+                }
+            }
+        }
+        
+        function movePlayer() {
+            player.x += player.dx;
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+        }
+
+        function updateScoreDisplay() {
+            scoreEl.textContent = score;
+        }
+
+        function updateLivesDisplay() {
+            livesEl.innerHTML = '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, 3 - lives));
+        }
+
+        function checkGameOver() {
+            if (lives <= 0) {
+                gameOver = true;
+                cancelAnimationFrame(gameLoop);
+                showGameOverScreen();
+            }
+        }
+        
+        function showGameOverScreen() {
+            modalTitle.textContent = 'Fim de Jogo!';
+            modalText.textContent = 'Obrigado por ajudar o planeta. Cada pequena ação faz a diferença!';
+            finalScoreEl.textContent = `Pontuação Final: ${score}`;
+            finalScoreEl.classList.remove('hidden');
+            startButton.textContent = 'Jogar Novamente';
+            modal.style.display = 'flex';
+        }
+
+        // --- Loop Principal ---
+        function loop(timestamp) {
+            if (gameOver) return;
+
+            if (timestamp - lastSpawn > itemSpawnInterval) {
+                lastSpawn = timestamp;
+                createItem();
+            }
+            
+            movePlayer();
+            updateItems();
+            draw();
+            checkGameOver();
+
+            gameLoop = requestAnimationFrame(loop);
+        }
+
+        // --- Controles ---
+        function handleKeyDown(e) {
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') player.dx = player.speed;
+            else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') player.dx = -player.speed;
+        }
+
+        function handleKeyUp(e) {
+            if (['ArrowRight', 'd', 'ArrowLeft', 'a'].includes(e.key.toLowerCase())) player.dx = 0;
+        }
+        
+        let touchX = null;
+        function handleTouchStart(e) {
+            if (e.touches) touchX = e.touches[0].clientX;
+        }
+
+        function handleTouchMove(e) {
+            if (touchX === null) return;
+            const currentX = e.touches[0].clientX;
+            const diffX = currentX - touchX;
+            player.x += diffX;
+            touchX = currentX;
+            e.preventDefault();
+        }
+        
+        function handleTouchEnd() {
+            touchX = null;
+        }
+
+        // --- Iniciar o Jogo ---
+        function startGame() {
+            // Reseta as variáveis do jogo
+            score = 0;
+            lives = 3;
+            items.length = 0;
+            itemSpawnInterval = 900;
+            gameOver = false;
+            
+            resizeCanvas(); // Configura tamanhos e posições iniciais
+            
+            // Atualiza a UI
+            updateScoreDisplay();
+            updateLivesDisplay();
+            modal.style.display = 'none';
+            finalScoreEl.classList.add('hidden');
+            
+            // Inicia o loop
+            requestAnimationFrame(loop);
+        }
+        
+        // Adiciona os listeners de eventos
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+        startButton.addEventListener('click', startGame);
+
+        // Chamada inicial para configurar o layout
+        resizeCanvas();
+    </script>
+</body>
+</html>
