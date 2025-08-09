@@ -1,0 +1,110 @@
+/* ... (Mantenha todo o CSS anterior) ... */
+
+/* Estilos da tela inicial de seleção de desafios */
+#start-screen p {
+    font-size: 1.2em;
+    color: #555;
+    margin-bottom: 30px;
+}
+
+#challenge-selection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Ajustado para um pouco menor */
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.challenge-card {
+    background-color: #e0f2f7; /* Azul claro para cards */
+    border-radius: 15px; /* Bordas mais arredondadas */
+    padding: 25px 15px; /* Mais padding para espaço */
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    box-shadow: 0 6px 15px rgba(0, 100, 0, 0.1); /* Sombra mais suave */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px; /* Garante altura mínima */
+    text-align: center;
+    border: 2px solid transparent; /* Borda para feedback de hover/completo */
+}
+
+.challenge-card:hover {
+    transform: translateY(-8px); /* Efeito de flutuar mais pronunciado */
+    box-shadow: 0 12px 25px rgba(0, 100, 0, 0.2); /* Sombra maior no hover */
+    background-color: #dcedc8; /* Um verde clarinho no hover */
+    border-color: #4CAF50; /* Borda verde no hover */
+}
+
+.challenge-card.completed {
+    background-color: #c8e6c9; /* Verde mais suave para desafios completos */
+    opacity: 0.9;
+    cursor: default;
+    box-shadow: 0 4px 10px rgba(0, 100, 0, 0.08);
+    border-color: #81c784; /* Borda verde mais suave para completo */
+}
+
+.challenge-card.completed:hover {
+    transform: none; /* Sem efeito de flutuar se completo */
+    box-shadow: 0 4px 10px rgba(0, 100, 0, 0.08);
+    background-color: #c8e6c9; /* Mantém a cor */
+    border-color: #81c784; /* Mantém a cor da borda */
+}
+
+
+.challenge-card .challenge-icon {
+    font-size: 4em; /* Ícone maior */
+    margin-bottom: 12px;
+    line-height: 1; /* Alinhamento correto */
+    color: #0288d1; /* Azul vibrante para os ícones */
+    transition: color 0.2s ease;
+}
+
+.challenge-card:hover .challenge-icon {
+    color: #2e7d32; /* Muda a cor do ícone no hover */
+}
+
+
+.challenge-card h3 {
+    color: #01579b; /* Azul escuro para títulos de card */
+    margin: 0;
+    font-size: 1.4em;
+    font-weight: 700;
+}
+
+/* Responsividade adicional para os cards */
+@media (max-width: 768px) {
+    #challenge-selection-grid {
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); /* Ajuste para telas menores */
+        gap: 15px;
+    }
+
+    .challenge-card {
+        padding: 20px 10px;
+        min-height: 140px;
+    }
+
+    .challenge-card .challenge-icon {
+        font-size: 3.5em;
+    }
+
+    .challenge-card h3 {
+        font-size: 1.1em;
+    }
+}
+
+@media (max-width: 480px) {
+    #challenge-selection-grid {
+        grid-template-columns: 1fr; /* Uma coluna em telas muito pequenas */
+    }
+    .challenge-card {
+        min-height: 120px;
+    }
+    .challenge-card .challenge-icon {
+        font-size: 3em;
+    }
+    .challenge-card h3 {
+        font-size: 1em;
+    }
+}
